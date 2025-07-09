@@ -8,14 +8,17 @@ import re
 from ydata_profiling import ProfileReport
 import streamlit.components.v1 as components
 
-# --- Load API key ---
+# --- Load Gemini API key ---
 load_dotenv()
-openai_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-if not openai_key:
-    st.error("❌ OPENAI_API_KEY not found.")
+gemini_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+if not gemini_key:
+    st.error("❌ GEMINI_API_KEY not found.")
     st.stop()
 
-client = OpenAI(api_key=openai_key)
+client = OpenAI(
+    api_key=gemini_key,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+)
 
 # --- Page Config ---
 st.set_page_config(page_title="🧠 AI Data Analyst", layout="wide")
@@ -37,7 +40,6 @@ with st.sidebar:
 
         st.markdown("---")
         st.subheader("📊 Dataset Summary")
-
         st.write(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
         if st.checkbox("Show dtypes & memory"):
             st.dataframe(df.dtypes.astype(str).reset_index().rename(columns={"index": "Column", 0: "Dtype"}))
@@ -51,13 +53,13 @@ with st.sidebar:
                     {"role": "user", "content": f"Here are the first few rows of the dataset:\n\n{df.head(5).to_csv(index=False)}"}
                 ]
                 summary_response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gemini-2.5-flash",  # ✅ Valid Gemini model name
                     messages=summary_prompt
                 )
                 dataset_summary = summary_response.choices[0].message.content.strip()
                 st.write(dataset_summary)
             except Exception as e:
-                st.error(f"⚠️ Could not summarize dataset: {e}")
+                st.error(f"⚠️ Gemini API Error: {e}")
 
         st.markdown("---")
         with st.expander("📋 Generate Full Data Profile"):
@@ -94,7 +96,6 @@ if df is not None:
             chart_type = st.radio("Chart Type", ["Scatter", "Bar", "Line"], horizontal=True)
 
             dark_colors = ['#FF6F61', '#6B5B95', '#88B04B', '#F7CAC9', '#92A8D1']
-
             layout_config = dict(
                 margin=dict(t=40),
                 title_x=0.5,
@@ -144,7 +145,7 @@ if df is not None:
                 with st.spinner("Thinking..."):
                     try:
                         response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
+                            model="gemini-2.5-flash",
                             messages=st.session_state.chat_context
                         )
                         answer = response.choices[0].message.content.strip()
@@ -159,7 +160,7 @@ if df is not None:
                                 except Exception as e:
                                     st.error(f"⚠️ Chart error: {e}")
                     except Exception as e:
-                        st.error(f"❌ OpenAI Error: {e}")
+                        st.error(f"❌ Gemini API Error: {e}")
 
         if st.button("🧹 Clear Chat"):
             del st.session_state.chat_context
